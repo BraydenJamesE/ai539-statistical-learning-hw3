@@ -1,6 +1,7 @@
 import scipy.io
 import pandas as pd
 import numpy as np
+import time 
 
 
 def get_data(data_filename : str) -> np.ndarray:
@@ -13,7 +14,6 @@ def get_data(data_filename : str) -> np.ndarray:
 
 
 def is_in_interval(interval_i : list, interval_j : list, indices : np.ndarray, first_inclusive : bool = True, second_inclusive : bool = False) -> bool: 
-    
     start_i, end_i = interval_i
     start_j, end_j = interval_j
 
@@ -47,7 +47,6 @@ def get_bin_indices(data_point : np.ndarray, m : int) -> tuple:
 
 
 def get_probability_estimation(X_train : np.ndarray, y_train : np.ndarray, m : int) -> np.ndarray:
-    
     P_hat = np.empty((m,m))
 
     for i in range(1, m+1):
@@ -75,7 +74,8 @@ def get_probability_estimation(X_train : np.ndarray, y_train : np.ndarray, m : i
 
 
 def get_bayes_classifier(predictions : np.ndarray) -> np.ndarray:
-    classification = np.where(predictions > 0.5, 1, np.where(predictions < 0.5, -1, np.random.choice([-1, 1], size=predictions.shape))) # computing the classification
+    random_choice = np.random.choice([-1, 1], size=predictions.shape)
+    classification = np.where(predictions > 0.5, 1, np.where(predictions < 0.5, -1, random_choice)) # computing the classification
     return classification
 
 
@@ -94,17 +94,19 @@ def get_expected_risk(classifications : np.ndarray, true_targets : np.ndarray) -
 def main():
     data_filename = "hw2_data.mat"
     X_train, y_train, X_test, y_test = get_data(data_filename)
-    m_array = [2,4,8,16]
-    n_array = list(10**i for i in range(6)) # [10, 10^2, ..., 10^6]
+    m_array = [2,4,8,16] # Number of bins
+    n_array = list(10**i for i in range(1, 7)) # Number of data points = [10, 10^2, ..., 10^6]
+    test_subset_size = X_test.shape[0] // 10 # getting 1/10 of the test data
+    print(f"Test Subset Size: {test_subset_size}")
 
     for m in m_array:
         for n in n_array:
-            num_monte_carlo_runs = 100
+            num_monte_carlo_runs = 10
             all_expected_risks = []
 
             print(f"Expected Risk:")
             print(f"(m = {m}, n = {n})") 
-
+            
             for i in range(num_monte_carlo_runs):
                 # obtaining sampled data
                 random_indices = np.random.choice(X_train.shape[0], size=n, replace=False)
@@ -115,7 +117,9 @@ def main():
                 P_hat = get_probability_estimation(sampled_X_train, sampled_y_train, m) # getting probability of y = 1 per bin based on data
 
                 predictions = [] # initializing my predictions for the test data
-                for x1,x2 in X_test: # looping through each point in the sampled train data and getting thier bin index
+                start_time = time.time()
+                random_indices = np.random.choice(X_test.shape[0], size=test_subset_size, replace=False) # obtaining a random subset of the test data
+                for x1,x2 in X_test[random_indices]: # looping through each point in the sampled train data and getting thier bin index
 
                     data_point = [x1, x2]
                     i_idx, j_idx = get_bin_indices(data_point, m)
@@ -124,13 +128,14 @@ def main():
 
                 predictions = np.array(predictions).reshape(-1,1)
                 classifications = get_bayes_classifier(predictions)
-                expected_risk = get_expected_risk(classifications, y_test)
-                
-                print(f"{i}: {expected_risk}")
+                expected_risk = get_expected_risk(classifications, y_test[random_indices])
+                end_time = time.time()
+                print(f"{i}: Total Time: {end_time-start_time:.2f} seconds; Expected Risk: {expected_risk:.3f}")
                 
                 all_expected_risks.append(expected_risk)
                 
-            print(f"Average Risk for m and n: {np.average(all_expected_risks)}")
+            print(f"Average Risk for m and n: {np.average(all_expected_risks):.3f}")
+            print("-------------------")
 
 
 
