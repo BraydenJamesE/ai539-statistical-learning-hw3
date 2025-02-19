@@ -2,6 +2,7 @@ import scipy.io
 import pandas as pd
 import numpy as np
 import time 
+import matplotlib.pyplot as plt
 
 
 def get_data(data_filename : str) -> np.ndarray:
@@ -84,24 +85,44 @@ def get_n_random_data_points(data : np.ndarray, n : int) -> np.ndarray:
     return data[random_indices]
 
 
-def get_expected_risk(classifications : np.ndarray, true_targets : np.ndarray) -> float:
+def get_expected_risk(classifications : np.ndarray, true_targets : np.ndarray) -> float: # computing expected risk (incorrect / total)
     total_values = classifications.shape[0]
-    correct_predictions = classifications == true_targets
-    total_correct_predictions = correct_predictions.sum()
-    return total_correct_predictions / total_values
+    total_incorrect_predictions = (classifications != true_targets).sum()
+    return total_incorrect_predictions / total_values
+
+
+def plot_average_risk(risk_results : np.ndarray, n_array : np.ndarray, m_array : np.ndarray) -> None: 
+    plt.figure(figsize=(8, 6))
+
+    for i, m in enumerate(m_array): 
+        plt.plot(n_array, risk_results[i], label=f"m = {m}", marker='o')
+    
+    plt.xlabel("Number of Training Samples (n)")
+    plt.ylabel("Average Risk")
+    plt.title("Average Risk vs. Training Sample Size")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
 
 
 def main():
     data_filename = "hw2_data.mat"
     X_train, y_train, X_test, y_test = get_data(data_filename)
-    m_array = [2,4,8,16] # Number of bins
-    n_array = list(10**i for i in range(1, 7)) # Number of data points = [10, 10^2, ..., 10^6]
+    #m_array = [2,4,8,16] # Number of bins
+    #n_array = list(10**i for i in range(1, 7)) # Number of data points = [10, 10^2, ..., 10^6]
+
+    # TESTING
+    m_array = [2,3,4]
+    n_array = [10, 100, 1000]
+
     test_subset_size = X_test.shape[0] // 10 # getting 1/10 of the test data
     print(f"Test Subset Size: {test_subset_size}")
+    risk_results = np.empty((len(m_array), len(n_array)))
 
-    for m in m_array:
-        for n in n_array:
-            num_monte_carlo_runs = 10
+    for m_idx, m in enumerate(m_array):
+        for n_idx, n in enumerate(n_array):
+            num_monte_carlo_runs = 5 # CHANGE TO 100 WHEN DONE TESTING
             all_expected_risks = []
 
             print(f"Expected Risk:")
@@ -133,10 +154,13 @@ def main():
                 print(f"{i}: Total Time: {end_time-start_time:.2f} seconds; Expected Risk: {expected_risk:.3f}")
                 
                 all_expected_risks.append(expected_risk)
-                
+
+            risk_results[m_idx, n_idx] = np.mean(all_expected_risks)
             print(f"Average Risk for m and n: {np.average(all_expected_risks):.3f}")
             print("-------------------")
-
+            
+    print(risk_results)
+    plot_average_risk(risk_results, n_array, m_array)
 
 
 if __name__ == "__main__":
