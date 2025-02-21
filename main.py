@@ -105,6 +105,19 @@ def plot_average_risk(risk_results : np.ndarray, n_array : np.ndarray, m_array :
     plt.show()
 
 
+def get_predictions_in_chunks(X_subset, P_hat, m, chunk_size=100000):
+    predictions = []
+    for start in range(0, X_subset.shape[0], chunk_size): # iterating through the number of rows in X_subset with a stepsize of chunck_size
+        end = min(start + chunk_size, X_subset.shape[0]) # creating the end index 
+        data_chunk = X_subset[start:end] 
+        # Compute bin indices for the chunk
+        bin_indices = np.floor(data_chunk * m).astype(int) # computing the index by multiplying the data points by m and casting that to an integer
+        bin_indices = np.minimum(bin_indices, m - 1) # ensuring that the indexes are m - 1
+        # Retrieve predictions for this chunk
+        chunk_predictions = P_hat[bin_indices[:, 0], bin_indices[:, 1]]  
+        predictions.append(chunk_predictions)
+    return np.concatenate(predictions)
+
 
 def main():
     data_filename = "hw2_data.mat"
@@ -140,14 +153,16 @@ def main():
                 predictions = [] # initializing my predictions for the test data
                 start_time = time.time()
                 random_indices = np.random.choice(X_test.shape[0], size=test_subset_size, replace=False) # obtaining a random subset of the test data
-                for x1,x2 in X_test[random_indices]: # looping through each point in the sampled train data and getting thier bin index
+                # for x1,x2 in X_test[random_indices]: # looping through each point in the sampled train data and getting thier bin index
 
-                    data_point = [x1, x2]
-                    i_idx, j_idx = get_bin_indices(data_point, m)
+                #     data_point = [x1, x2]
+                #     i_idx, j_idx = get_bin_indices(data_point, m)
 
-                    predictions.append(P_hat[i_idx][j_idx]) # appending their p_hat values for that bin 
+                #     predictions.append(P_hat[i_idx][j_idx]) # appending their p_hat values for that bin 
 
-                predictions = np.array(predictions).reshape(-1,1)
+                X_subset = X_test[random_indices]  # This is 1,000,000 rows
+                predictions = get_predictions_in_chunks(X_subset, P_hat, m)
+                predictions = predictions.reshape(-1, 1)
                 classifications = get_bayes_classifier(predictions)
                 expected_risk = get_expected_risk(classifications, y_test[random_indices])
                 end_time = time.time()
